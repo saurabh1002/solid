@@ -4,7 +4,7 @@
 
 ## How to use the SOLiD pipeline?
 ```
-$ git clone https://github.com/sparolab/solid.git
+$ git clone https://github.com/saurabh1002/solid.git
 $ make
 $ solid_pipeline --dataloader mulran --config <path-to-config>  <path-to-mulran-root> <path-to-results-dir>
 ```
