@@ -39,6 +39,9 @@ class MulranDataset:
             self.gt_closure_indices = np.loadtxt(
                 os.path.join(self.data_dir, "loop_closure", "gt_closures.txt")
             )
+            self.local_maps_scan_range = np.load(
+                os.path.join(self.data_dir, "MapClosures", "local_maps_scan_index_range.npy")
+            )
         except FileNotFoundError:
             self.gt_closure_indices = None
 

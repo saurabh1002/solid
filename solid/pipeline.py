@@ -33,6 +33,10 @@ from solid.core.point_module import PointModule
 from solid.tools.pipeline_results import PipelineResults
 from solid.tools.progress_bar import get_progress_bar
 
+def scan_to_map(scan_query, scan_ref, local_maps_scan_range):
+    map_query = np.where((scan_query >= local_maps_scan_range[:, 0]) & (scan_query < local_maps_scan_range[:, 1]))[0][0]
+    map_ref = np.where((scan_ref >= local_maps_scan_range[:, 0]) & (scan_ref < local_maps_scan_range[:, 1]))[0][0]
+    return map_query, map_ref
 
 class SolidPipeline:
     def __init__(
@@ -56,6 +60,7 @@ class SolidPipeline:
 
         self.closures = []
         self.gt_closure_indices = self._dataset.gt_closure_indices
+        self.local_maps_scan_range = self._dataset.local_maps_scan_range
 
         solid_thresholds = np.arange(self.config.loop_threshold, 0.04, 0.004)
         self.results = PipelineResults(
@@ -83,16 +88,19 @@ class SolidPipeline:
             if query_idx > 100:
                 cosdist = []
                 for candidate_idx in range(query_idx - 100):
-                    query_R_solid     = self.rsolid_database[query_idx]
-                    candidate_R_solid = self.rsolid_database[candidate_idx]
-                    cosine_similarity = self.solid.loop_detection(query_R_solid, candidate_R_solid)
-                    cosdist = 1-cosine_similarity
-                    if cosdist < self.config.loop_threshold:
-                        query_A_solid     = self.asolid_database[query_idx]
-                        candidate_A_solid = self.asolid_database[candidate_idx]
-                        angle_difference  = self.solid.pose_estimation(query_A_solid, candidate_A_solid)
-                        self.closures.append(np.r_[candidate_idx, query_idx, angle_difference])
-                    self.results.append(query_idx, candidate_idx, cosdist)
+                    map_query, map_ref = scan_to_map(query_idx, candidate_idx, self.local_maps_scan_range)
+                    if (map_query - map_ref > 3):
+                        query_R_solid     = self.rsolid_database[query_idx]
+                        candidate_R_solid = self.rsolid_database[candidate_idx]
+                        cosine_similarity = self.solid.loop_detection(query_R_solid, candidate_R_solid)
+                        cosdist = 1 - cosine_similarity
+                        if cosdist < self.config.loop_threshold:
+                            query_A_solid     = self.asolid_database[query_idx]
+                            candidate_A_solid = self.asolid_database[candidate_idx]
+                            angle_difference  = self.solid.pose_estimation(query_A_solid, candidate_A_solid)
+                            self.closures.append(np.r_[candidate_idx, query_idx, angle_difference])
+
+                        self.results.append(map_ref, map_query, cosdist)
 
 
     def _run_evaluation(self) -> None:
@@ -102,7 +110,6 @@ class SolidPipeline:
         self.results_dir = self._create_results_dir()
         if self.gt_closure_indices is not None:
             self.results.log_to_file_pr(os.path.join(self.results_dir, "metrics.txt"))
-        self.results.log_to_file_closures(self.results_dir)
         np.savetxt(os.path.join(self.results_dir, "closures.txt"), np.asarray(self.closures))
 
     def _create_results_dir(self) -> Path:
