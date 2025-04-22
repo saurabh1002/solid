@@ -62,7 +62,7 @@ class SolidPipeline:
         self.gt_closure_indices = self._dataset.gt_closure_indices
         self.local_maps_scan_range = self._dataset.local_maps_scan_range
 
-        solid_thresholds = np.arange(self.config.loop_threshold, 0.04, 0.004)
+        solid_thresholds = np.arange(self.config.loop_threshold, 1.0, 0.1)
         self.results = PipelineResults(
             self.gt_closure_indices, self.dataset_name, solid_thresholds
         )
@@ -86,7 +86,7 @@ class SolidPipeline:
             self.asolid_database.append(a_solid_desc)
             
             if query_idx > 100:
-                cosdist = []
+                cosdist = 0
                 for candidate_idx in range(query_idx - 100):
                     map_query, map_ref = scan_to_map(query_idx, candidate_idx, self.local_maps_scan_range)
                     if (map_query - map_ref > 3):
@@ -99,7 +99,6 @@ class SolidPipeline:
                             candidate_A_solid = self.asolid_database[candidate_idx]
                             angle_difference  = self.solid.pose_estimation(query_A_solid, candidate_A_solid)
                             self.closures.append(np.r_[candidate_idx, query_idx, angle_difference])
-
                         self.results.append(map_ref, map_query, cosdist)
 
 
