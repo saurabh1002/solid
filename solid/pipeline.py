@@ -62,7 +62,7 @@ class SolidPipeline:
         self.gt_closure_indices = self._dataset.gt_closure_indices
         self.local_maps_scan_range = self._dataset.local_maps_scan_range
 
-        solid_thresholds = np.arange(self.config.loop_threshold, 1.0, 0.1)
+        solid_thresholds = np.arange(self.config.loop_threshold, 0.1, 0.004)
         self.results = PipelineResults(
             self.gt_closure_indices, self.dataset_name, solid_thresholds
         )
