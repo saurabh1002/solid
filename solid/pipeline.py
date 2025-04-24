@@ -53,7 +53,7 @@ class SolidPipeline:
 
         self.config = load_config(config)
         self.solid = SOLiDModule(self.config)
-        self.preprocess = PointModule(self.config)
+        self.preprocessor = PointModule(self.config)
         self.rsolid_database = []
         self.asolid_database = []
         self.dataset_name = self._dataset.sequence_id
@@ -78,9 +78,7 @@ class SolidPipeline:
     def _run_pipeline(self):
         for query_idx in get_progress_bar(self._first, self._last):
             scan = self._dataset[query_idx]
-            scan = self.preprocess.remove_closest_points(scan)
-            scan = self.preprocess.remove_far_points(scan)
-            scan_downsampled = self.preprocess.down_sampling(scan)
+            scan_downsampled = self.preprocessor.preprocess(scan)
             r_solid_desc, a_solid_desc = self.solid.get_descriptor(scan_downsampled)
             self.rsolid_database.append(r_solid_desc)
             self.asolid_database.append(a_solid_desc)

@@ -8,20 +8,10 @@ class PointModule:
         self.max_distance = config.max_distance
         self.voxel_size   = config.voxel_size
 
-    def remove_closest_points(self, points):
+    def preprocess(self, points):
         dists = np.sum(np.square(points[:, :3]), axis=1)
-        cloud_out = points[dists > self.min_distance*self.min_distance]
-        return cloud_out
-
-    def remove_far_points(self, points):
-        dists = np.sum(np.square(points[:, :3]), axis=1)
-        cloud_out = points[dists < self.max_distance*self.max_distance]
-        return cloud_out
-
-    def down_sampling(self, points):
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points[:, 0:3])
+        cloud_filtered = points[(dists > self.min_distance * self.min_distance) & (dists < self.max_distance * self.max_distance), :3]
+        pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(cloud_filtered))
         down_pcd = pcd.voxel_down_sample(voxel_size=self.voxel_size)
-        down_points_np = np.asarray(down_pcd.points)
-        return down_points_np
+        return np.asarray(down_pcd.points)
 
