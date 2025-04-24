@@ -68,9 +68,9 @@ class SOLiDModule:
         a_solid = sector_matrix.dot(number_vector)
         return r_solid, a_solid
 
-    def loop_detection(self, query, candidate):
-        cosine_similarity = np.dot(query, candidate) / (np.linalg.norm(query) * np.linalg.norm(candidate))
-        return cosine_similarity
+    def loop_detection(self, query, candidates):
+        cosine_similarities = (query @ candidates.T) / (np.linalg.norm(query) * np.linalg.norm(candidates, axis=1))
+        return cosine_similarities
 
     def pose_estimation(self, query, candidate):
         initial_cosdist = np.zeros(len(query))

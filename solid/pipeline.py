@@ -54,8 +54,8 @@ class SolidPipeline:
         self.config = load_config(config)
         self.solid = SOLiDModule(self.config)
         self.preprocessor = PointModule(self.config)
-        self.rsolid_database = []
-        self.asolid_database = []
+        self.rsolid_database = np.zeros((self._last, self.config.num_range))
+        self.asolid_database = np.zeros((self._last, self.config.num_angle))
         self.dataset_name = self._dataset.sequence_id
 
         self.closures = []
@@ -79,25 +79,24 @@ class SolidPipeline:
         for query_idx in get_progress_bar(self._first, self._last):
             scan = self._dataset[query_idx]
             scan_downsampled = self.preprocessor.preprocess(scan)
-            r_solid_desc, a_solid_desc = self.solid.get_descriptor(scan_downsampled)
-            self.rsolid_database.append(r_solid_desc)
-            self.asolid_database.append(a_solid_desc)
+            query_R_solid, query_A_solid = self.solid.get_descriptor(scan_downsampled)
+            self.rsolid_database[query_idx] = query_R_solid
+            self.asolid_database[query_idx] = query_A_solid
             
             if query_idx > 100:
                 cosdist = 0
-                for candidate_idx in range(query_idx - 100):
+                candidate_indices = np.arange(query_idx - 100)
+                candidates_R_solid = self.rsolid_database[candidate_indices]
+                cosine_similarities = self.solid.loop_detection(query_R_solid, candidates_R_solid)
+                cosdistances = 1 - cosine_similarities
+                for candidate_idx, distance in zip(candidate_indices, cosdistances):
                     map_query, map_ref = scan_to_map(query_idx, candidate_idx, self.local_maps_scan_range)
                     if (map_query - map_ref > 3):
-                        query_R_solid     = self.rsolid_database[query_idx]
-                        candidate_R_solid = self.rsolid_database[candidate_idx]
-                        cosine_similarity = self.solid.loop_detection(query_R_solid, candidate_R_solid)
-                        cosdist = 1 - cosine_similarity
-                        if cosdist < self.config.loop_threshold:
-                            query_A_solid     = self.asolid_database[query_idx]
+                        self.results.append(map_ref, map_query, distance)
+                        if distance < self.config.loop_threshold:
                             candidate_A_solid = self.asolid_database[candidate_idx]
                             angle_difference  = self.solid.pose_estimation(query_A_solid, candidate_A_solid)
                             self.closures.append(np.r_[candidate_idx, query_idx, angle_difference])
-                        self.results.append(map_ref, map_query, cosdist)
 
 
     def _run_evaluation(self) -> None:
