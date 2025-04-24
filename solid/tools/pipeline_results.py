@@ -66,9 +66,10 @@ class PipelineResults:
         if self.metrics:
             self.log_to_console()
 
-    def append(self, source_id: int, target_id: int, dist: float) -> None:
-        self.distances_list.append(dist)
-        self.closure_list.append((source_id, target_id))
+    def append(self, source_ids: int, target_id: int, distances: float) -> None:
+        for source_id, dist in zip(source_ids, distances):
+            self.distances_list.append(dist)
+            self.closure_list.append((source_id, target_id))
 
     def compute_metrics(
         self,

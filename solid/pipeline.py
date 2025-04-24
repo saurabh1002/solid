@@ -33,10 +33,21 @@ from solid.core.point_module import PointModule
 from solid.tools.pipeline_results import PipelineResults
 from solid.tools.progress_bar import get_progress_bar
 
-def scan_to_map(scan_query, scan_ref, local_maps_scan_range):
-    map_query = np.where((scan_query >= local_maps_scan_range[:, 0]) & (scan_query < local_maps_scan_range[:, 1]))[0][0]
-    map_ref = np.where((scan_ref >= local_maps_scan_range[:, 0]) & (scan_ref < local_maps_scan_range[:, 1]))[0][0]
-    return map_query, map_ref
+import numpy as np
+
+def scan_to_map(scan_query, scan_ref_array, local_maps_scan_range):
+    query_mask = (scan_query >= local_maps_scan_range[:, 0]) & (scan_query < local_maps_scan_range[:, 1])
+    map_query = np.argmax(query_mask)
+
+    scan_ref_array = np.asarray(scan_ref_array)
+    start = local_maps_scan_range[:, 0][:, None]
+    end = local_maps_scan_range[:, 1][:, None]
+
+    ref_mask = (scan_ref_array >= start) & (scan_ref_array < end)
+    map_refs = np.argmax(ref_mask, axis=0)
+
+    return map_query, map_refs
+
 
 class SolidPipeline:
     def __init__(
@@ -58,7 +69,6 @@ class SolidPipeline:
         self.asolid_database = np.zeros((self._last, self.config.num_angle))
         self.dataset_name = self._dataset.sequence_id
 
-        self.closures = []
         self.gt_closure_indices = self._dataset.gt_closure_indices
         self.local_maps_scan_range = self._dataset.local_maps_scan_range
 
@@ -84,20 +94,12 @@ class SolidPipeline:
             self.asolid_database[query_idx] = query_A_solid
             
             if query_idx > 100:
-                cosdist = 0
                 candidate_indices = np.arange(query_idx - 100)
                 candidates_R_solid = self.rsolid_database[candidate_indices]
                 cosine_similarities = self.solid.loop_detection(query_R_solid, candidates_R_solid)
                 cosdistances = 1 - cosine_similarities
-                for candidate_idx, distance in zip(candidate_indices, cosdistances):
-                    map_query, map_ref = scan_to_map(query_idx, candidate_idx, self.local_maps_scan_range)
-                    if (map_query - map_ref > 3):
-                        self.results.append(map_ref, map_query, distance)
-                        if distance < self.config.loop_threshold:
-                            candidate_A_solid = self.asolid_database[candidate_idx]
-                            angle_difference  = self.solid.pose_estimation(query_A_solid, candidate_A_solid)
-                            self.closures.append(np.r_[candidate_idx, query_idx, angle_difference])
-
+                map_query, map_refs = scan_to_map(query_idx, candidate_indices, self.local_maps_scan_range)
+                self.results.append(map_refs, map_query, cosdistances)
 
     def _run_evaluation(self) -> None:
         self.results.compute_metrics()
@@ -106,7 +108,6 @@ class SolidPipeline:
         self.results_dir = self._create_results_dir()
         if self.gt_closure_indices is not None:
             self.results.log_to_file_pr(os.path.join(self.results_dir, "metrics.txt"))
-        np.savetxt(os.path.join(self.results_dir, "closures.txt"), np.asarray(self.closures))
 
     def _create_results_dir(self) -> Path:
         def get_timestamp() -> str:
