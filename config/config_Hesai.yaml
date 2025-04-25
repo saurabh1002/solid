@@ -1,0 +1,9 @@
+min_distance: 3.0
+max_distance: 80.0
+fov_u: 15.0
+fov_d: -25.0
+num_angle: 60
+num_elevation: 128
+num_range: 40
+voxel_size: 0.5
+loop_threshold: 0.004
