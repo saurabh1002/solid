@@ -88,7 +88,7 @@ class PipelineResults:
         table = Table(box=table_format)
         for threshold, metric in zip(self._solid_thresholds, self.metrics):
             table.add_row(
-                f"{threshold:.4f}" f"{metric.tp}" f"{metric.fp}" f"{metric.fn}" f"{metric.precision:.4f}" f"{metric.recall:.4f}" f"{metric.F1:.4f}"
+                f"{threshold:.4f} {metric.tp} {metric.fp} {metric.fn} {metric.precision:.4f} {metric.recall:.4f} {metric.F1:.4f}"
             )
         return table
 
