@@ -68,8 +68,9 @@ class PipelineResults:
 
     def append(self, source_ids: int, target_id: int, distances: float) -> None:
         for source_id, dist in zip(source_ids, distances):
-            self.distances_list.append(dist)
-            self.closure_list.append((source_id, target_id))
+            if target_id - source_id > 3:
+                self.distances_list.append(dist)
+                self.closure_list.append((source_id, target_id))
 
     def compute_metrics(
         self,
