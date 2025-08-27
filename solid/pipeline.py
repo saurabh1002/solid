@@ -39,13 +39,11 @@ def scan_to_map(scan_query, scan_ref_array, local_maps_scan_range):
     query_mask = (scan_query >= local_maps_scan_range[:, 0]) & (scan_query < local_maps_scan_range[:, 1])
     map_query = np.argmax(query_mask)
 
-    scan_ref_array = np.asarray(scan_ref_array)
     start = local_maps_scan_range[:, 0][:, None]
     end = local_maps_scan_range[:, 1][:, None]
 
     ref_mask = (scan_ref_array >= start) & (scan_ref_array < end)
-    map_refs = np.argmax(ref_mask, axis=0)
-
+    map_refs = np.argmax(ref_mask, axis=0).astype(np.uint16)
     return map_query, map_refs
 
 
@@ -72,7 +70,7 @@ class SolidPipeline:
         self.gt_closure_indices = self._dataset.gt_closure_indices
         self.local_maps_scan_range = self._dataset.local_maps_scan_range
 
-        solid_thresholds = np.arange(self.config.loop_threshold, 0.1, 0.004)
+        solid_thresholds = np.arange(0.001, 0.1, 0.001)
         self.results = PipelineResults(
             self.gt_closure_indices, self.dataset_name, solid_thresholds
         )
@@ -99,7 +97,8 @@ class SolidPipeline:
                 cosine_similarities = self.solid.loop_detection(query_R_solid, candidates_R_solid)
                 cosdistances = 1 - cosine_similarities
                 map_query, map_refs = scan_to_map(query_idx, candidate_indices, self.local_maps_scan_range)
-                self.results.append(map_refs, map_query, cosdistances)
+                keep_indices = np.where((map_query - map_refs > 3) & (cosdistances <= 0.1))[0]
+                self.results.append(map_refs[keep_indices], map_query, cosdistances[keep_indices])
 
     def _run_evaluation(self) -> None:
         self.results.compute_metrics()

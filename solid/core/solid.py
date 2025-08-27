@@ -10,9 +10,9 @@ class SOLiDModule:
         self.num_elevation = config.num_elevation
         self.max_length = config.max_distance
 
-        self.gap_ring = self.max_length / self.num_range            
-        self.gap_sector = 360 / self.num_angle              
-        self.gap_height = ((self.fov_u - self.fov_d)) / self.num_elevation   
+        self.gap_ring = self.max_length / self.num_range
+        self.gap_sector = 360 / self.num_angle
+        self.gap_height = (self.fov_u - self.fov_d) / self.num_elevation   
 
     def xy2theta(self, x, y):
         theta = np.empty_like(x, dtype=float)
@@ -33,22 +33,24 @@ class SOLiDModule:
         x = points[:, 0]
         y = points[:, 1]
         z = points[:, 2]
-        
+
+        # Avoid division by zero
         x = np.where(x == 0.0, 0.001, x)
         y = np.where(y == 0.0, 0.001, y)
 
-        theta   = self.xy2theta(x, y) 
-        faraway = np.sqrt(np.square(x) + np.square(y))
-        phi     = np.rad2deg(np.arctan2(z, faraway)) - self.fov_d
+        theta = self.xy2theta(x, y)
+        faraway = np.hypot(x, y)
+        phi = np.degrees(np.arctan2(z, faraway)) - self.fov_d
 
-        idx_ring   = np.divmod(faraway, self.gap_ring)[0]      
-        idx_sector = np.divmod(theta, self.gap_sector)[0]   
-        idx_height = np.divmod(phi, self.gap_height)[0]
-        
-        idx_ring = np.where(idx_ring >= self.num_range, self.num_range - 1, idx_ring)
-        idx_height = np.where(idx_height >= self.num_elevation, self.num_elevation - 1, idx_height)
+        idx_ring = np.floor_divide(faraway, self.gap_ring).astype(np.int32)
+        idx_sector = np.floor_divide(theta, self.gap_sector).astype(np.int32)
+        idx_height = np.floor_divide(phi, self.gap_height).astype(np.int32)
 
-        return idx_ring.astype(int), idx_sector.astype(int), idx_height.astype(int)
+        np.clip(idx_ring, 0, self.num_range - 1, out=idx_ring)
+        np.clip(idx_sector, 0, self.num_angle - 1, out=idx_sector)
+        np.clip(idx_height, 0, self.num_elevation - 1, out=idx_height)
+
+        return idx_ring, idx_sector, idx_height
 
     def get_descriptor(self, scan):
         rh_counter = np.zeros([self.num_range, self.num_elevation])             
@@ -57,15 +59,13 @@ class SOLiDModule:
         rh_counter[idx_rings, idx_heights] = rh_counter[idx_rings, idx_heights] + 1
         sh_counter[idx_sectors, idx_heights] = sh_counter[idx_sectors, idx_heights] + 1
      
-        ring_matrix = rh_counter    
-        sector_matrix = sh_counter
-        number_vector = np.sum(ring_matrix, axis=0)
+        number_vector = np.sum(rh_counter, axis=0)
         min_val = number_vector.min()
         max_val = number_vector.max()
         number_vector = (number_vector - min_val) / (max_val - min_val)
             
-        r_solid = ring_matrix.dot(number_vector)
-        a_solid = sector_matrix.dot(number_vector)
+        r_solid = rh_counter.dot(number_vector)
+        a_solid = sh_counter.dot(number_vector)
         return r_solid, a_solid
 
     def loop_detection(self, query, candidates):
@@ -73,8 +73,8 @@ class SOLiDModule:
         return cosine_similarities
 
     def pose_estimation(self, query, candidate):
-        initial_cosdist = np.zeros(len(query))
-        for shift_index in range(len(query)):
-            initial_cosdist[shift_index] = np.sum(np.abs(candidate - np.roll(query, shift_index)))
+        # Use broadcasting for efficiency
+        rolled_queries = np.array([np.roll(query, i) for i in range(len(query))])
+        initial_cosdist = np.sum(np.abs(candidate - rolled_queries), axis=1)
         angle_difference = np.argmin(initial_cosdist) * (360 / self.num_angle)
         return angle_difference

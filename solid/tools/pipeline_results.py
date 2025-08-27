@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import os
-from typing import Dict, Set, Tuple
+from typing import Set, Tuple
 
 import numpy as np
 from rich import box
@@ -55,8 +55,7 @@ class PipelineResults:
         self._dataset_name = dataset_name
         self._solid_thresholds = solid_thresholds
 
-        self.closure_list: List[Tuple[int]] = []
-        self.distances_list: List[float] = []
+        self.closure_list = {}
         self.metrics = []
 
         gt_closures = gt_closures if gt_closures.shape[1] == 2 else gt_closures.T
@@ -66,20 +65,18 @@ class PipelineResults:
         if self.metrics:
             self.log_to_console()
 
-    def append(self, source_ids: int, target_id: int, distances: float) -> None:
-        for source_id, dist in zip(source_ids, distances):
-            if target_id - source_id > 3:
-                self.distances_list.append(dist)
-                self.closure_list.append((source_id, target_id))
+    def append(self, source_ids: np.ndarray, target_id: int, distances: float) -> None:
+        self.closure_list[target_id] = (source_ids, distances)
 
     def compute_metrics(
         self,
     ) -> None:
         for threshold in self._solid_thresholds:
             closures = set()
-            for closure_indices, dist in zip(self.closure_list, self.distances_list):
-                if dist <= threshold:
-                    closures.add(closure_indices)
+            for target_id, (source_ids, distances) in self.closure_list.items():
+                mask = distances <= threshold
+                if np.any(mask):
+                    closures.update((source_id, target_id) for source_id in source_ids[mask])
             tp = len(self.gt_closures.intersection(closures))
             fp = len(closures) - tp
             fn = len(self.gt_closures) - tp
