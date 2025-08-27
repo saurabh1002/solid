@@ -117,13 +117,12 @@ class SolidPipeline:
         for ref_idx in get_progress_bar(0, len(self._ref_dataset)):
             scan = self._ref_dataset[ref_idx]
             scan_downsampled = self.preprocessor_ref.preprocess(scan)
-            ref_R_solid, _ = self.solid_ref.get_descriptor(scan_downsampled)
-            self.rsolid_database[ref_idx] = ref_R_solid
+            self.rsolid_database[ref_idx] = self.solid_ref.get_descriptor(scan_downsampled)
 
         for query_idx in get_progress_bar(0, len(self._query_dataset)):
             scan = self._query_dataset[query_idx]
             scan_downsampled = self.preprocessor_query.preprocess(scan)
-            query_R_solid, _ = self.solid_query.get_descriptor(scan_downsampled)
+            query_R_solid = self.solid_query.get_descriptor(scan_downsampled)
 
             cosdistances = 1 - self.solid_query.loop_detection(query_R_solid, self.rsolid_database)
             keep_indices = np.where(cosdistances <= 0.1)[0]

@@ -83,7 +83,7 @@ class SolidPipeline:
         for query_idx in get_progress_bar(self._first, self._last):
             scan = self._dataset[query_idx]
             scan_downsampled = self.preprocessor.preprocess(scan)
-            query_R_solid, _ = self.solid.get_descriptor(scan_downsampled)
+            query_R_solid = self.solid.get_descriptor(scan_downsampled)
             self.rsolid_database[query_idx] = query_R_solid
             
             if query_idx > 100:

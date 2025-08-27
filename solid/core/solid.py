@@ -38,26 +38,21 @@ class SOLiDModule:
         x = np.where(x == 0.0, 0.001, x)
         y = np.where(y == 0.0, 0.001, y)
 
-        theta = self.xy2theta(x, y)
         faraway = np.hypot(x, y)
         phi = np.degrees(np.arctan2(z, faraway)) - self.fov_d
 
         idx_ring = np.floor_divide(faraway, self.gap_ring).astype(np.int32)
-        idx_sector = np.floor_divide(theta, self.gap_sector).astype(np.int32)
         idx_height = np.floor_divide(phi, self.gap_height).astype(np.int32)
 
         np.clip(idx_ring, 0, self.num_range - 1, out=idx_ring)
-        np.clip(idx_sector, 0, self.num_angle - 1, out=idx_sector)
         np.clip(idx_height, 0, self.num_elevation - 1, out=idx_height)
 
-        return idx_ring, idx_sector, idx_height
+        return idx_ring, idx_height
 
     def get_descriptor(self, scan):
         rh_counter = np.zeros([self.num_range, self.num_elevation])             
-        sh_counter = np.zeros([self.num_angle, self.num_elevation])   
-        idx_rings, idx_sectors, idx_heights = self.pt2rah(scan)
+        idx_rings, idx_heights = self.pt2rah(scan)
         rh_counter[idx_rings, idx_heights] = rh_counter[idx_rings, idx_heights] + 1
-        sh_counter[idx_sectors, idx_heights] = sh_counter[idx_sectors, idx_heights] + 1
      
         number_vector = np.sum(rh_counter, axis=0)
         min_val = number_vector.min()
@@ -65,8 +60,7 @@ class SOLiDModule:
         number_vector = (number_vector - min_val) / (max_val - min_val)
             
         r_solid = rh_counter.dot(number_vector)
-        a_solid = sh_counter.dot(number_vector)
-        return r_solid, a_solid
+        return r_solid
 
     def loop_detection(self, query, candidates):
         cosine_similarities = (query @ candidates.T) / (np.linalg.norm(query) * np.linalg.norm(candidates, axis=1))
