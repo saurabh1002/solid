@@ -35,17 +35,14 @@ from solid.tools.progress_bar import get_progress_bar
 
 import numpy as np
 
-def scan_to_map(scan_query, scan_ref_array, local_maps_scan_range):
-    query_mask = (scan_query >= local_maps_scan_range[:, 0]) & (scan_query < local_maps_scan_range[:, 1])
-    map_query = np.argmax(query_mask)
-
+def scan_indices_to_map_indices(dataset_size, local_maps_scan_range):
     start = local_maps_scan_range[:, 0][:, None]
     end = local_maps_scan_range[:, 1][:, None]
 
-    ref_mask = (scan_ref_array >= start) & (scan_ref_array < end)
-    map_refs = np.argmax(ref_mask, axis=0).astype(np.uint16)
-    return map_query, map_refs
-
+    scan_indices = np.arange(dataset_size)
+    ref_mask = (scan_indices >= start) & (scan_indices < end)
+    map_indices = np.argmax(ref_mask, axis=0).astype(np.uint16)
+    return map_indices
 
 class SolidPipeline:
     def __init__(
@@ -57,22 +54,21 @@ class SolidPipeline:
         self._dataset = dataset
         self._first = 0
         self._last = len(self._dataset)
-
         self.results_dir = results_dir
 
         self.config = load_config(config)
         self.solid = SOLiDModule(self.config)
         self.preprocessor = PointModule(self.config)
         self.rsolid_database = np.zeros((self._last, self.config.num_range))
-        self.asolid_database = np.zeros((self._last, self.config.num_angle))
         self.dataset_name = self._dataset.sequence_id
 
         self.gt_closure_indices = self._dataset.gt_closure_indices
         self.local_maps_scan_range = self._dataset.local_maps_scan_range
+        self.map_indices = scan_indices_to_map_indices(self._last, self.local_maps_scan_range)
 
         solid_thresholds = np.arange(0.001, 0.1, 0.001)
         self.results = PipelineResults(
-            self.gt_closure_indices, self.dataset_name, solid_thresholds
+            self.gt_closure_indices, solid_thresholds
         )
 
     def run(self):
@@ -87,16 +83,15 @@ class SolidPipeline:
         for query_idx in get_progress_bar(self._first, self._last):
             scan = self._dataset[query_idx]
             scan_downsampled = self.preprocessor.preprocess(scan)
-            query_R_solid, query_A_solid = self.solid.get_descriptor(scan_downsampled)
+            query_R_solid, _ = self.solid.get_descriptor(scan_downsampled)
             self.rsolid_database[query_idx] = query_R_solid
-            self.asolid_database[query_idx] = query_A_solid
             
             if query_idx > 100:
                 candidate_indices = np.arange(query_idx - 100)
                 candidates_R_solid = self.rsolid_database[candidate_indices]
-                cosine_similarities = self.solid.loop_detection(query_R_solid, candidates_R_solid)
-                cosdistances = 1 - cosine_similarities
-                map_query, map_refs = scan_to_map(query_idx, candidate_indices, self.local_maps_scan_range)
+                cosdistances = 1 - self.solid.loop_detection(query_R_solid, candidates_R_solid)
+                map_query = self.map_indices[query_idx]
+                map_refs = self.map_indices[candidate_indices]
                 keep_indices = np.where((map_query - map_refs > 3) & (cosdistances <= 0.1))[0]
                 self.results.append(map_refs[keep_indices], map_query, cosdistances[keep_indices])
 

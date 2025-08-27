@@ -26,7 +26,12 @@ setup(
     packages=find_packages(),
     cmake_install_dir="pybind/",
     cmake_install_target="install_python_bindings",
-    entry_points={"console_scripts": ["solid_pipeline=solid.tools.cmd:run"]},
+    entry_points={
+        "console_scripts": [
+            "solid_pipeline=solid.tools.cmd:run",
+            "solid_multisession_pipeline=solid.tools.cmd:run_multisession",
+        ]
+    },
     install_requires=[
         "numpy",
         "typer[all]>=0.6.0",

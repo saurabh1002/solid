@@ -51,8 +51,7 @@ class Metrics:
 
 
 class PipelineResults:
-    def __init__(self, gt_closures: np.ndarray, dataset_name: str, solid_thresholds) -> None:
-        self._dataset_name = dataset_name
+    def __init__(self, gt_closures: np.ndarray, solid_thresholds) -> None:
         self._solid_thresholds = solid_thresholds
 
         self.closure_list = {}
@@ -65,8 +64,9 @@ class PipelineResults:
         if self.metrics:
             self.log_to_console()
 
-    def append(self, source_ids: np.ndarray, target_id: int, distances: float) -> None:
-        self.closure_list[target_id] = (source_ids, distances)
+    def append(self, source_ids: np.ndarray, target_id: int, distances: np.ndarray) -> None:
+        if len(source_ids) > 0:
+            self.closure_list[target_id] = (source_ids, distances)
 
     def compute_metrics(
         self,
