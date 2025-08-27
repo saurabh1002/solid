@@ -31,11 +31,10 @@ import open3d as o3d
 class IPBCarDataset:
     def __init__(self, data_dir: Path, *_, **__):
         self.sequence_id = os.path.basename(data_dir)
-        self.data_dir = os.path.realpath(data_dir)
-        self.sequence_dir = os.path.join(self.data_dir, "points")
+        self.sequence_dir = os.path.join(data_dir, "points")
         self.scan_files = sorted(glob.glob(self.sequence_dir + "/*.ply"))
 
-        self.gt_file = os.path.join(self.data_dir, "poses.npy")
+        self.gt_file = os.path.join(data_dir, "poses.npy")
         self.gt_poses = self.load_poses(self.gt_file)
 
         try:
@@ -47,7 +46,7 @@ class IPBCarDataset:
             )
         except FileNotFoundError:
             self.gt_closure_indices = None
-            
+
         if len(self.scan_files) == 0:
             raise ValueError(f"Tried to read point cloud files in {data_dir} but none found")
 
